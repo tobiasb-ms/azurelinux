@@ -35,7 +35,7 @@
 # TODO(azl): review how this will get resolved
 # ...global dist
 
-Summary:        Azure Linux release files
+Summary:        Intentionally stale controlled-fork workflow test output
 Name:           azurelinux-release
 Version:        4.0
 # TODO(azl): Review whether we can move back to autorelease (with conditional -p)
