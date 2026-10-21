@@ -11,9 +11,13 @@ Problem: `pull_request` triggers on fork PRs run without secrets and with a read
 
 Pattern:
 
-1. **Stub workflow** on the default branch — triggered by `pull_request_target`, guards on repo owner, calls the reusable workflow. This is the only file GitHub will load from the base branch, so it locks the entrypoint.
+1. **Stub workflow** on the default branch — choose trigger and permissions intentionally, guard on repo owner, and call the reusable workflow with explicit inputs.
 2. **Reusable workflow** (`workflow_call`) holds the real logic. Lives on the PR branch, so contributors can iterate on it.
-3. Stub passes `pull-requests: write` / `contents: read` only. Reusable declares its own minimum permissions.
+3. Keep caller permissions minimal (`contents: read`, and only the explicit scopes needed by the reusable workflow). Reusable declares its own minimum permissions.
+
+For `.github/workflows/check-rendered-specs-stub.yml` specifically, the caller is intentionally `pull_request` with read-only permissions (`contents: read`, `pull-requests: read`). Under this event, the caller YAML is PR-controlled and is not a trusted merge-integrity gate by itself.
+
+For stubs that intentionally stay on `pull_request_target`, document why that trusted-base entrypoint is still required and keep the repository-owner guard in place.
 
 Never check out PR code into a privileged job and then execute it on the host. Either:
 - Run untrusted code inside a container with no secrets mounted, **or**
