@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.repo }}
-          ref: "4.0"
+          ref: "tobiasb-ms/test-rendered-specs-base"
           persist-credentials: false
 
       # --- PR head (untrusted data — TOML configs, overlays, locks) ---
@@ -267,7 +267,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.repo }}
-          ref: "4.0"
+          ref: "tobiasb-ms/test-rendered-specs-base"
           persist-credentials: false
 
       # --- PR head (untrusted data — TOML configs, overlays, specs) ---
