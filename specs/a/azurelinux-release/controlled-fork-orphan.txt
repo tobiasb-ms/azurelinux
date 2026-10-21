@@ -1,1 +1,0 @@
-Intentionally orphaned generated output for controlled-fork workflow validation.
