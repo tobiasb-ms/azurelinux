@@ -1,7 +1,9 @@
-# Reusable workflow — renders specs from a PR + resolves lock files, and
+# PR workflow — renders specs from a PR + resolves lock files, and
 # checks both for drift.
 #
-# Called by the pull_request stub on 4.0 via workflow_call.
+# The workflow definition is PR-controlled under pull_request; it is not a
+# trusted merge-integrity gate by itself. Helpers and container config still
+# come from a separate trusted-base checkout.
 #
 #   1. update_locks (full distro)
 #   2. render (only if update_locks succeeded; PR-scoped via the change-set
@@ -22,30 +24,14 @@
 name: "Check Rendered Specs"
 
 on:
-  workflow_call:
-    inputs:
-      pr-head-sha:
-        required: true
-        type: string
-      pr-head-repo:
-        required: true
-        type: string
-      pr-base-sha:
-        required: true
-        type: string
-      pr-number:
-        required: true
-        type: string
-      repo:
-        required: true
-        type: string
+  pull_request:
+    branches:
+      - "tobiasb-ms/test-rendered-specs-base"
 
 permissions: {}
 
-# Belt-and-suspenders: the stub also sets concurrency, but keep it here so the
-# contract survives refactoring / direct invocation.
 concurrency:
-  group: pr-drift-check-${{ inputs.repo }}-${{ inputs.pr-number }}
+  group: render-check-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 jobs:
@@ -58,6 +44,8 @@ jobs:
   # container so users can `git apply` the result.
   update_locks:
     name: Update locks + drift check
+    # Prevent forks from running a stale/vulnerable copy with Actions enabled.
+    if: github.repository == 'tobiasb-ms/azurelinux'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -72,16 +60,16 @@ jobs:
       - name: Checkout base (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.repo }}
-          ref: "4.0"
+          repository: ${{ github.repository }}
+          ref: "tobiasb-ms/test-rendered-specs-base"
           persist-credentials: false
 
       # --- PR head (untrusted data — TOML configs, overlays, locks) ---
       - name: Checkout PR head (data)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.pr-head-repo }}
-          ref: ${{ inputs.pr-head-sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           path: pr-head
           fetch-depth: 0
           persist-credentials: false
@@ -91,9 +79,9 @@ jobs:
       - name: Resolve post-merge azldev version
         id: resolve
         env:
-          REPO: ${{ inputs.repo }}
-          PR_NUMBER: ${{ inputs.pr-number }}
-          PR_HEAD_SHA: ${{ inputs.pr-head-sha }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
@@ -239,15 +227,13 @@ jobs:
     permissions:
       contents: read
     steps:
-      # Defense-in-depth: validate the SHA and repo inputs before they
-      # reach any `git`/`azldev` invocation inside the container. GitHub
-      # populates these from the pull_request event, but the reusable
-      # workflow is also callable directly so we don't assume the contract.
+      # Defense-in-depth: validate event SHAs and repo before they reach any
+      # `git`/`azldev` invocation inside the container.
       - name: Validate inputs
         env:
-          PR_BASE_SHA: ${{ inputs.pr-base-sha }}
-          PR_HEAD_SHA: ${{ inputs.pr-head-sha }}
-          BASE_REPO: ${{ inputs.repo }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           for v in PR_BASE_SHA PR_HEAD_SHA; do
@@ -266,16 +252,16 @@ jobs:
       - name: Checkout base (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.repo }}
-          ref: "4.0"
+          repository: ${{ github.repository }}
+          ref: "tobiasb-ms/test-rendered-specs-base"
           persist-credentials: false
 
       # --- PR head (untrusted data — TOML configs, overlays, specs) ---
       - name: Checkout PR head (data)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          repository: ${{ inputs.pr-head-repo }}
-          ref: ${{ inputs.pr-head-sha }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.sha }}
           path: pr-head
           fetch-depth: 0
           persist-credentials: false
@@ -313,9 +299,9 @@ jobs:
         id: check
         env:
           WORKSPACE: ${{ github.workspace }}
-          PR_BASE_SHA: ${{ inputs.pr-base-sha }}
-          PR_HEAD_SHA: ${{ inputs.pr-head-sha }}
-          BASE_REPO: ${{ inputs.repo }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REPO: ${{ github.repository }}
           RENDER_ALL: ${{ needs.update_locks.outputs.render-all }}
         run: |
           set -euo pipefail
