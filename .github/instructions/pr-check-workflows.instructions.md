@@ -15,7 +15,9 @@ Pattern:
 2. **Reusable workflow** (`workflow_call`) holds the real logic. Lives on the PR branch, so contributors can iterate on it.
 3. Keep caller permissions minimal (`contents: read`, and only the explicit scopes needed by the reusable workflow). Reusable declares its own minimum permissions.
 
-For `.github/workflows/check-rendered-specs-stub.yml` specifically, the caller is intentionally `pull_request` with read-only permissions (`contents: read`, `pull-requests: read`). Under this event, the caller YAML is PR-controlled and is not a trusted merge-integrity gate by itself.
+## Direct pull_request workflow: rendered-spec checks
+
+`.github/workflows/check-rendered-specs.yml` runs directly on `pull_request` with read-only permissions (`contents: read`, and `pull-requests: read` for version resolution). Its orchestration comes from the PR merge ref, so workflow changes can be tested before merge; it is not a trusted merge-integrity gate by itself. Helpers and container config still come from a separate trusted `4.0` checkout, while the PR-head checkout is data for containerized execution. Preserve the repository-owner guard, lock-before-render gate, and post-merge tool-version resolution.
 
 For stubs that intentionally stay on `pull_request_target`, document why that trusted-base entrypoint is still required and keep the repository-owner guard in place.
 
